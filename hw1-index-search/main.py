@@ -77,6 +77,10 @@ def normalize_text(text,
 
     return [(key, len(list(group))) for key, group in groupby(tokens)]
 
+def calc_rsv_default(N, Nt, ftd, Ld, L, k1, b):
+    idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
+    tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
+    return tf * idf
 
 class InvertedIndex:
     def __init__(self):
@@ -98,25 +102,23 @@ class InvertedIndex:
 
         pass
 
-    def search_okapi_bm25(self, query, b=0.75, k1=1.2, limit=10):
+    def search_okapi_bm25(self, query, b=0.75, k1=1.2, k2=500, limit=10):
         result = []
 
-        average_doc_length = self.documents_total_length / len(self.documents)
+        N = len(self.documents)
+        L = self.documents_total_length / len(self.documents)
 
         query_tokens = [x[0] for x in normalize_text(query)]
 
         for doc_id, doc_text in self.documents.items():
             rsv = 0
             for token in query_tokens:
-                N = len(self.documents)
+
                 Nt = self.get_document_frequency(token)
                 ftd = self.get_term_frequency(token, doc_id)
                 Ld = len(doc_text)
-                L = self.documents_total_length
 
-                idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
-                tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
-                rsv += idf * tf
+                rsv += calc_rsv_default(N, Nt, ftd, Ld, L, k1, b)
 
             result.append((doc_id, rsv))
 
@@ -138,6 +140,14 @@ class InvertedIndex:
         else:
             return 0
 
+    def get_average_postings_list_length(self):
+        l = [len(p) for p in self.index.values()]
+        return sum(l) / len(l)
+
+    def get_max_postings_list_length(self):
+        l = [len(p) for p in self.index.values()]
+        return max(l)
+
 
 index = InvertedIndex()
 
@@ -149,3 +159,6 @@ with open('answer_W', 'w') as output:
         query_id = query_tuple[0]
         for doc_id in index.search_okapi_bm25(query_tuple[1]):
             output.write("{} {}\n".format(query_id, doc_id))
+
+print("Average postings list length: {}".format(index.get_average_postings_list_length()))
+print("Max postings list length: {}".format(index.get_max_postings_list_length()))
