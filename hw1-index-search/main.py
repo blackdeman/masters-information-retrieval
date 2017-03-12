@@ -2,6 +2,7 @@ import string
 import math
 from itertools import groupby
 from operator import itemgetter
+from numpy import arange
 
 import nltk
 from nltk.tokenize import word_tokenize
@@ -12,6 +13,43 @@ default_tokenize_func = word_tokenize
 default_lemmatizer = None  # WordNetLemmatizer()
 default_stemmer = SnowballStemmer("english")
 default_stop_words = set(nltk.corpus.stopwords.words('english'))
+
+
+def eval_metrics(groundtruth_file, answer_file):
+    q2reld = {}
+    for line in open(groundtruth_file):
+        qid, did = [int(x) for x in line.split()]
+        if qid in q2reld.keys():
+            q2reld[qid].add(did)
+        else:
+            q2reld[qid] = set()
+
+    q2retrd = {}
+    for line in open(answer_file):
+        qid, did = [int(x) for x in line.split()]
+        if qid in q2retrd.keys():
+            q2retrd[qid].append(did)
+        else:
+            q2retrd[qid] = []
+
+    N = len(q2retrd.keys())
+    precision = sum([len(q2reld[q].intersection(q2retrd[q])) * 1.0 / len(q2retrd[q]) for q in q2retrd.keys()]) / N
+    recall = sum([len(q2reld[q].intersection(q2retrd[q])) * 1.0 / len(q2reld[q]) for q in q2retrd.keys()]) / N
+    print("mean precision: {}\nmean recall: {}\nmean F-measure: {}" \
+          .format(precision, recall, 2 * precision * recall / (precision + recall)))
+
+    # MAP@10
+    import numpy as np
+
+    MAP = 0.0
+    for q in q2retrd.keys():
+        n_results = min(10, len(q2retrd[q]))
+        avep = np.zeros(n_results)
+        for i in range(n_results):
+            avep[i:] += q2retrd[q][i] in q2reld[q]
+            avep[i] *= (q2retrd[q][i] in q2reld[q]) / (i + 1.0)
+        MAP += sum(avep) / min(n_results, len(q2reld[q]))
+    print("MAP@10: {}".format(MAP / N))
 
 
 def parse_file(file, label='W'):
@@ -77,10 +115,12 @@ def normalize_text(text,
 
     return [(key, len(list(group))) for key, group in groupby(tokens)]
 
+
 def calc_rsv_default(N, Nt, ftd, Ld, L, k1, b):
     idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
     tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
     return tf * idf
+
 
 class InvertedIndex:
     def __init__(self):
@@ -113,7 +153,6 @@ class InvertedIndex:
         for doc_id, doc_text in self.documents.items():
             rsv = 0
             for token in query_tokens:
-
                 Nt = self.get_document_frequency(token)
                 ftd = self.get_term_frequency(token, doc_id)
                 Ld = len(doc_text)
@@ -148,17 +187,22 @@ class InvertedIndex:
         l = [len(p) for p in self.index.values()]
         return max(l)
 
-
 index = InvertedIndex()
 
-for doc_tuple in parse_file('cran.all.1400', 'W'):
+for doc_tuple in parse_file('cran.all.1400', 'T'):
     index.add_document(doc_tuple[0], doc_tuple[1])
 
-with open('answer_W', 'w') as output:
+# for k1 in arange(1.2, 2.1, 0.1):
+#     for b in arange(0., 1.1, 0.1):
+#         print("------------------------------------------")
+#         print("k1 = {}, b = {}".format(k1, b))
+with open('answer_T', 'w') as output:
     for query_tuple in parse_file('cran.qry'):
         query_id = query_tuple[0]
         for doc_id in index.search_okapi_bm25(query_tuple[1]):
             output.write("{} {}\n".format(query_id, doc_id))
+
+        # eval_metrics('qrel_clean', 'answer')
 
 print("Average postings list length: {}".format(index.get_average_postings_list_length()))
 print("Max postings list length: {}".format(index.get_max_postings_list_length()))
