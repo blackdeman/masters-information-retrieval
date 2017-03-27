@@ -5,6 +5,7 @@ from operator import itemgetter
 from numpy import arange
 
 import nltk
+from nltk import defaultdict
 from nltk.tokenize import word_tokenize
 # from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
@@ -102,12 +103,8 @@ def normalize_text(text,
         if lemmatizer:
             token = lemmatizer.lemmatize(token)
 
-        # todo probably we need to check stop_words here
-
         if stemmer:
             token = stemmer.stem(token)
-
-        # todo probably we need to check stop_words here
 
         tokens.append(token)
 
@@ -116,17 +113,30 @@ def normalize_text(text,
     return [(key, len(list(group))) for key, group in groupby(tokens)]
 
 
-def calc_rsv_default(N, Nt, ftd, Ld, L, k1, b):
+def calc_rsv_default(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
     idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
     tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
-    return tf * idf
+    return idf * tf
+
+
+def calc_rsv_custom_idf(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
+    idf = math.log(N / Nt)
+    tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
+    return idf * tf
+
+
+def calc_rsv_general(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
+    idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
+    tftd = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
+    tftq = ftq * (k2 + 1) / (k2 * ftq)
+    return idf * tftd * tftq
 
 
 class InvertedIndex:
     def __init__(self):
         self.documents_total_length = 0
         self.documents = dict()
-        self.index = dict()
+        self.index = defaultdict(list)
 
         pass
 
@@ -134,50 +144,44 @@ class InvertedIndex:
         self.documents_total_length += len(document)
         self.documents[doc_id] = document
 
+        # todo maybe sort after add
         for token in normalize_text(document):
-            if token[0] not in self.index:
-                self.index[token[0]] = dict()
-
-            self.index[token[0]][doc_id] = token[1]
+            self.index[token[0]].append((doc_id, token[1]))
 
         pass
 
-    def search_okapi_bm25(self, query, b=0.75, k1=1.2, k2=500, limit=10):
-        result = []
+    def search_okapi_bm25(self, query, b=0.75, k1=1.2, k2=500, limit=10, rsvfunc=calc_rsv_default, norm_rsv=False):
+        result = defaultdict(int)
 
         N = len(self.documents)
         L = self.documents_total_length / len(self.documents)
 
-        query_tokens = [x[0] for x in normalize_text(query)]
+        query_terms = dict(normalize_text(query))
 
-        for doc_id, doc_text in self.documents.items():
-            rsv = 0
-            for token in query_tokens:
-                Nt = self.get_document_frequency(token)
-                ftd = self.get_term_frequency(token, doc_id)
-                Ld = len(doc_text)
+        term_idf_sum = 0
 
-                rsv += calc_rsv_default(N, Nt, ftd, Ld, L, k1, b)
+        for token in self.index.keys():
+            if token in query_terms:
+                token_docs = self.index[token]
+                Nt = len(token_docs)
+                ftq = query_terms[token]
+                for doc_tuple in token_docs:
+                    doc_id = doc_tuple[0]
+                    ftd = doc_tuple[1]
+                    Ld = len(self.documents[doc_id])
 
-            result.append((doc_id, rsv))
+                    result[doc_id] += rsvfunc(N, Nt, ftd, ftq, Ld, L, b, k1, k2)
+
+                term_idf_sum += math.log(N / Nt)
+
+        result = list(result.items())
+
+        if norm_rsv:
+            result = [(x[0], x[1] / term_idf_sum) for x in result]
+            pass
 
         result = sorted(result, key=itemgetter(1), reverse=True)
         return [x[0] for x in result][:limit]
-
-    def get_document_frequency(self, term):
-        if term in self.index:
-            return len(self.index[term])
-        else:
-            return 0
-
-    def get_term_frequency(self, term, doc_id):
-        if term in self.index:
-            if doc_id in self.index[term]:
-                return self.index[term][doc_id]
-            else:
-                return 0
-        else:
-            return 0
 
     def get_average_postings_list_length(self):
         l = [len(p) for p in self.index.values()]
@@ -202,7 +206,7 @@ with open('answer_T', 'w') as output:
         for doc_id in index.search_okapi_bm25(query_tuple[1]):
             output.write("{} {}\n".format(query_id, doc_id))
 
-        # eval_metrics('qrel_clean', 'answer')
+eval_metrics('qrel_clean', 'answer_T')
 
 print("Average postings list length: {}".format(index.get_average_postings_list_length()))
 print("Max postings list length: {}".format(index.get_max_postings_list_length()))
