@@ -1,6 +1,7 @@
 import string
 import math
 from itertools import groupby
+from itertools import chain
 from operator import itemgetter
 from numpy import arange
 
@@ -11,7 +12,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
 
 default_tokenize_func = word_tokenize
-default_lemmatizer = None  # WordNetLemmatizer()
+default_lemmatizer = None # WordNetLemmatizer()
 default_stemmer = SnowballStemmer("english")
 default_stop_words = set(nltk.corpus.stopwords.words('english'))
 
@@ -36,8 +37,9 @@ def eval_metrics(groundtruth_file, answer_file):
     N = len(q2retrd.keys())
     precision = sum([len(q2reld[q].intersection(q2retrd[q])) * 1.0 / len(q2retrd[q]) for q in q2retrd.keys()]) / N
     recall = sum([len(q2reld[q].intersection(q2retrd[q])) * 1.0 / len(q2reld[q]) for q in q2retrd.keys()]) / N
-    print("mean precision: {}\nmean recall: {}\nmean F-measure: {}" \
-          .format(precision, recall, 2 * precision * recall / (precision + recall)))
+    fmeasure = 2 * precision * recall / (precision + recall)
+    # print("mean precision: {}\nmean recall: {}\nmean F-measure: {}" \
+    #       .format(precision, recall, 2 * precision * recall / (precision + recall)))
 
     # MAP@10
     import numpy as np
@@ -50,7 +52,10 @@ def eval_metrics(groundtruth_file, answer_file):
             avep[i:] += q2retrd[q][i] in q2reld[q]
             avep[i] *= (q2retrd[q][i] in q2reld[q]) / (i + 1.0)
         MAP += sum(avep) / min(n_results, len(q2reld[q]))
-    print("MAP@10: {}".format(MAP / N))
+    # print("MAP@10: {}".format(MAP / N))
+    map10 = MAP / N
+
+    return precision, recall, fmeasure, map10
 
 
 def parse_file(file, label='W'):
@@ -114,22 +119,30 @@ def normalize_text(text,
 
 
 def calc_rsv_default(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
-    idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
+    idf = calc_idf_default(N, Nt)
     tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
     return idf * tf
 
 
 def calc_rsv_custom_idf(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
-    idf = math.log(N / Nt)
+    idf = calc_idf_custom(N, Nt)
     tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
     return idf * tf
 
 
 def calc_rsv_general(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
-    idf = math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
+    idf = calc_idf_default(N, Nt)
     tftd = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
-    tftq = ftq * (k2 + 1) / (k2 * ftq)
+    tftq = ftq * (k2 + 1) / (k2 + ftq)
     return idf * tftd * tftq
+
+
+def calc_idf_default(N, Nt):
+    return math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
+
+
+def calc_idf_custom(N, Nt):
+    return math.log(N / Nt)
 
 
 class InvertedIndex:
@@ -150,7 +163,7 @@ class InvertedIndex:
 
         pass
 
-    def search_okapi_bm25(self, query, b=0.75, k1=1.2, k2=500, limit=10, rsvfunc=calc_rsv_default, norm_rsv=False):
+    def search_okapi_bm25(self, query, b=0.75, k1=1.2, k2=500, limit=10, idffunc=calc_idf_default, rsvfunc=calc_rsv_default, norm_rsv=False):
         result = defaultdict(int)
 
         N = len(self.documents)
@@ -172,7 +185,7 @@ class InvertedIndex:
 
                     result[doc_id] += rsvfunc(N, Nt, ftd, ftq, Ld, L, b, k1, k2)
 
-                term_idf_sum += math.log(N / Nt)
+                term_idf_sum += idffunc(N, Nt)
 
         result = list(result.items())
 
@@ -193,20 +206,37 @@ class InvertedIndex:
 
 index = InvertedIndex()
 
-for doc_tuple in parse_file('cran.all.1400', 'T'):
+for doc_tuple in parse_file('cran.all.1400', 'W'):
     index.add_document(doc_tuple[0], doc_tuple[1])
 
-# for k1 in arange(1.2, 2.1, 0.1):
-#     for b in arange(0., 1.1, 0.1):
-#         print("------------------------------------------")
-#         print("k1 = {}, b = {}".format(k1, b))
-with open('answer_T', 'w') as output:
-    for query_tuple in parse_file('cran.qry'):
-        query_id = query_tuple[0]
-        for doc_id in index.search_okapi_bm25(query_tuple[1]):
-            output.write("{} {}\n".format(query_id, doc_id))
+best_fmeasure = (0, 0, 0)
+best_map10 = (0, 0, 0)
 
-eval_metrics('qrel_clean', 'answer_T')
+# print("{}\t{}".format(1.2, 0.75))
+for k1 in arange(1.2, 2.1, .1):
+    for b in arange(.0, 1.1, .1):
+        # for k2 in chain(range(1, 2), range(10, 101, 10), range(200, 501, 50), range(600, 1001, 100)):
+        for k2 in (1, 10, 50, 100, 500, 1000):
+            print("{}\t{}\t{}".format(k1, k2, b))
+            with open('answer', 'w') as output:
+                for query_tuple in parse_file('cran.qry'):
+                    query_id = query_tuple[0]
+                    for doc_id in index.search_okapi_bm25(query_tuple[1], k1=k1, b=b, k2=k2, rsvfunc=calc_rsv_general, norm_rsv=True):
+                        output.write("{} {}\n".format(query_id, doc_id))
 
-print("Average postings list length: {}".format(index.get_average_postings_list_length()))
-print("Max postings list length: {}".format(index.get_max_postings_list_length()))
+            precision, recall, fmeasure, map10 = eval_metrics('qrel_clean', 'answer')
+            print("{}\t{}\t{}\t{}".format(precision, recall, fmeasure, map10))
+
+            if fmeasure > best_fmeasure[0]:
+                best_fmeasure = (fmeasure, k1, k2, b)
+
+            if map10 > best_map10[0]:
+                best_map10 = (map10, k1, k2, b)
+
+            print("-----------------------------------------------------------")
+
+print("Best f-measure = {} at k1 = {}, k2 = {}, b = {}".format(best_fmeasure[0], best_fmeasure[1], best_fmeasure[2], best_fmeasure[3]))
+print("Best map10 = {} at k1 = {}, k2 = {}, b = {}".format(best_map10[0], best_map10[1], best_map10[2], best_map10[3]))
+
+# print("Average postings list length: {}".format(index.get_average_postings_list_length()))
+# print("Max postings list length: {}".format(index.get_max_postings_list_length()))
