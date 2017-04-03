@@ -8,7 +8,7 @@ from numpy import arange
 import nltk
 from nltk import defaultdict
 from nltk.tokenize import word_tokenize
-# from nltk.stem.wordnet import WordNetLemmatizer
+from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.stem.snowball import SnowballStemmer
 
 default_tokenize_func = word_tokenize
@@ -125,7 +125,7 @@ def calc_rsv_default(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
 
 
 def calc_rsv_custom_idf(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
-    idf = calc_idf_custom(N, Nt)
+    idf = math.log(N / Nt)
     tf = ftd * (k1 + 1) / (k1 * ((1 - b) + b * Ld / L) + ftd)
     return idf * tf
 
@@ -139,10 +139,6 @@ def calc_rsv_general(N, Nt, ftd, ftq, Ld, L, b, k1, k2):
 
 def calc_idf_default(N, Nt):
     return math.log(1 + (N - Nt + 0.5) / (Nt + 0.5))
-
-
-def calc_idf_custom(N, Nt):
-    return math.log(N / Nt)
 
 
 class InvertedIndex:
