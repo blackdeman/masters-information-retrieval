@@ -13,7 +13,7 @@ class WikiGraphSpider(CrawlSpider):
     allowed_domains = ["en.wikipedia.org"]
     start_urls = ['https://en.wikipedia.org/wiki/Wiki',
                   'https://en.wikipedia.org/wiki/Facebook',
-                  'https://en.wikipedia.org/wiki/United_States',
+                  'https://en.wikipedia.org/wiki/Belarus',
                   'https://en.wikipedia.org/wiki/Philosophy']
 
     link_extractor = LinkExtractor(
