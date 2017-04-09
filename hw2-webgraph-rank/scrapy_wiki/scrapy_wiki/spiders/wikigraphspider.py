@@ -19,7 +19,11 @@ class WikiGraphSpider(CrawlSpider):
     link_extractor = LinkExtractor(
         # filter special wiki pages
         deny='https://en\.wikipedia\.org/wiki/'
-             '((File|Talk|Category|Portal|Special|Template|Template_talk|Wikipedia|Help|Draft):.*|Main_Page)',
+             '('
+             '(File|Talk|Category|Portal|Special|Template|Template_talk|Wikipedia|Help|Draft):.*|'
+             'Main_Page|'
+             '.+_\(disambiguation\)'
+             ')',
         # extract links from main content
         restrict_xpaths='//div[@id="mw-content-text"]/*/a'
     )
@@ -48,7 +52,8 @@ class WikiGraphSpider(CrawlSpider):
         item['title'] = response.xpath('//h1[@id="firstHeading"]/text()').extract()
 
         item['snippet'] = BeautifulSoup(
-            response.xpath('//div[@id="mw-content-text"]/p[not(descendant::span[@id="coordinates"])][1]').extract_first(),
+            response.xpath(
+                '//div[@id="mw-content-text"]/p[not(descendant::span[@id="coordinates"])][1]').extract_first(),
             "lxml"
         ).text[:255] + "..."
 

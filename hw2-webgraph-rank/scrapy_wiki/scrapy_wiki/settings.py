@@ -25,7 +25,7 @@ FEED_EXPORT_FIELDS=["url", "title", "snippet", "outlinks"]
 ROBOTSTXT_OBEY = True
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 4
+CONCURRENT_REQUESTS = 3
 
 # Configure a delay for requests for the same website (default: 0)
 # See http://scrapy.readthedocs.org/en/latest/topics/settings.html#download-delay
@@ -65,7 +65,7 @@ EXTENSIONS = {
    # 'scrapy.extensions.telnet.TelnetConsole': None,
     'scrapy.extensions.closespider.CloseSpider': True
 }
-CLOSESPIDER_PAGECOUNT = 10#12288
+CLOSESPIDER_PAGECOUNT = 12288
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
