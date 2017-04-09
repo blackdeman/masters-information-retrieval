@@ -16,6 +16,7 @@ NEWSPIDER_MODULE = 'scrapy_wiki.spiders'
 
 FEED_FORMAT="csv"
 FEED_URI="file:///E:\study\masters-information-retrieval\hw2-webgraph-rank\scrapy_output\wiki_links.csv"
+FEED_EXPORT_FIELDS=["url", "title", "snippet", "outlinks"]
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'scrapy_wiki (+http://www.yourdomain.com)'

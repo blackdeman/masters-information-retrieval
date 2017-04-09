@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
+import logging
 from bs4 import BeautifulSoup
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy.linkextractors import LinkExtractor
@@ -22,6 +23,8 @@ class WikiGraphSpider(CrawlSpider):
         # extract links from main content
         restrict_xpaths='//div[@id="mw-content-text"]/*/a'
     )
+
+    processed_pages = 0
 
     rules = (
         Rule(
@@ -59,5 +62,8 @@ class WikiGraphSpider(CrawlSpider):
         if response.url in outlinks: outlinks.remove(response.url)
 
         item['outlinks'] = outlinks
+
+        self.processed_pages = self.processed_pages + 1
+        logging.debug('Processed pages: %s', self.processed_pages)
 
         return item
