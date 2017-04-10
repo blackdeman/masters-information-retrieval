@@ -98,3 +98,4 @@ ENV/
 
 .idea
 .http_cache
+crawls
