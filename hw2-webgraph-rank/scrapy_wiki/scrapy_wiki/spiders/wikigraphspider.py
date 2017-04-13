@@ -17,6 +17,8 @@ class WikiGraphSpider(CrawlSpider):
                   'https://en.wikipedia.org/wiki/Philosophy']
 
     link_extractor = LinkExtractor(
+        # allow all wiki pages
+        allow='https://en\.wikipedia\.org/wiki/.*',
         # filter special wiki pages
         deny='https://en\.wikipedia\.org/wiki/'
              '('
