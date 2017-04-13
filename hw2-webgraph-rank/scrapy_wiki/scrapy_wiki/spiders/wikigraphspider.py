@@ -52,7 +52,8 @@ class WikiGraphSpider(CrawlSpider):
         item = ScrapyWikiItem()
         item['url'] = response.url
         item['title'] = BeautifulSoup(
-            response.xpath('//h1[@id="firstHeading"]').extract_first()
+            response.xpath('//h1[@id="firstHeading"]').extract_first(),
+            "lxml"
         ).text
 
         item['snippet'] = BeautifulSoup(
