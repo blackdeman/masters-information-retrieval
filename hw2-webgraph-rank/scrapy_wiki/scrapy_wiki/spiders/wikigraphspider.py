@@ -27,7 +27,11 @@ class WikiGraphSpider(CrawlSpider):
              '.+_\(disambiguation\)'
              ')',
         # extract links from main content
-        restrict_xpaths=['//div[@id="mw-content-text"]/*/a', '//div[@id="mw-content-text"]/ul/li/a']
+        restrict_xpaths=[
+            '//div[@id="mw-content-text"]/*/a',
+            '//div[@id="mw-content-text"]/ol/li/a',
+            '//div[@id="mw-content-text"]/ul/li/a',
+        ]
     )
 
     processed_pages = 0
