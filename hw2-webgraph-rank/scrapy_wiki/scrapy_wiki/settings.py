@@ -65,7 +65,7 @@ EXTENSIONS = {
    # 'scrapy.extensions.telnet.TelnetConsole': None,
     'scrapy.extensions.closespider.CloseSpider': True
 }
-CLOSESPIDER_PAGECOUNT = 12288
+CLOSESPIDER_PAGECOUNT = 13000
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html

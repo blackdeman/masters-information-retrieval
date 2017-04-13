@@ -25,7 +25,7 @@ class WikiGraphSpider(CrawlSpider):
              '.+_\(disambiguation\)'
              ')',
         # extract links from main content
-        restrict_xpaths='//div[@id="mw-content-text"]/*/a'
+        restrict_xpaths=['//div[@id="mw-content-text"]/*/a', '//div[@id="mw-content-text"]/ul/li/a']
     )
 
     processed_pages = 0
@@ -49,7 +49,9 @@ class WikiGraphSpider(CrawlSpider):
     def parse_item(self, response):
         item = ScrapyWikiItem()
         item['url'] = response.url
-        item['title'] = response.xpath('//h1[@id="firstHeading"]/text()').extract()
+        item['title'] = BeautifulSoup(
+            response.xpath('//h1[@id="firstHeading"]').extract_first()
+        ).text
 
         item['snippet'] = BeautifulSoup(
             response.xpath(
