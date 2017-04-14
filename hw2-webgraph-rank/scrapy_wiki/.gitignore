@@ -97,5 +97,4 @@ ENV/
 /site
 
 .idea
-.http_cache
 crawls
