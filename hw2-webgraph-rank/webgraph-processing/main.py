@@ -1,6 +1,7 @@
-import networkx as nx
 import json
 from operator import itemgetter
+
+import networkx as nx
 
 
 def load_graph(file):
@@ -13,8 +14,7 @@ def load_graph(file):
             node_info = json.loads(line)
             graph.add_node(node_info['url'])
 
-            url_to_info[node_info['url']] = (
-                node_info['title'][0] if len(node_info['title']) > 0 else '', node_info['snippet'])
+            url_to_info[node_info['url']] = (node_info['title'], node_info['snippet'])
 
     with open(file) as input_file:
         for line in input_file.readlines():
@@ -27,10 +27,11 @@ def load_graph(file):
     return graph, url_to_info
 
 
-G, url_to_info = load_graph('../scrapy_wiki/scrapy_results/wiki_links_12286.json')
+G, url_to_info = load_graph('../scrapy_wiki/scrapy_results/wiki_links_15993.json')
 
 print("Nodes count: {}".format(G.number_of_nodes()))
 print("Edges count: {}".format(G.number_of_edges()))
+print()
 
 
 def print_page(page_url, value):
@@ -51,8 +52,8 @@ for alpha in alphas:
     print("Top 10 by PageRank for alpha = {}\n".format(alpha))
     print_top10(nx.pagerank(G, alpha=alpha))
 
-hubs, authorities = nx.hits(G)
-average = {url: (value + authorities[url]) / 2  for url, value in hubs.items()}
+hubs, authorities = nx.hits(G, max_iter=500)
+average = {url: (value + authorities[url]) / 2 for url, value in hubs.items()}
 print("Top 10 HITS: hubs\n")
 print_top10(hubs)
 print("Top 10 HITS: authorities\n")
